@@ -1,0 +1,132 @@
+Môn học
+
+93%
+
+14/15 Bài học
+
+0:00 / 9:59
+
+Lesson 01 - Tổng quan về LangChain & LLMOps với Langfuse
+
+Hướng dẫn
+
+1. Hoàn Thành Video Bài Giảng
+
+Trong quá trình học tập, video bài giảng là nguồn kiến thức chính giúp bạn nắm vững các nội dung cần thiết. Không được tua video là một quy tắc bắt buộc. Hệ thống thường sẽ theo dõi thời gian bạn xem video và nếu bạn tua qua, bạn sẽ không thể đánh dấu hoàn thành bài học. Do đó, hãy xem toàn bộ video để đảm bảo hiểu đúng và đủ nội dung được truyền tải.
+Tips để học hiệu quả khi xem video:
+Tập trung hoàn toàn vào bài giảng, tránh làm việc riêng.
+Ghi chú lại các điểm quan trọng hoặc những gì bạn chưa hiểu để hỏi giảng viên hoặc tham khảo thêm tài liệu.
+Sử dụng chức năng tạm dừng (pause) khi cần ghi chú hoặc suy nghĩ kỹ về một khái niệm.
+
+2. Làm Đầy Đủ Bài Tập Sau Mỗi Bài Học
+
+Để có thể chuyển qua các bài học tiếp theo, việc hoàn thành đầy đủ các bài tập là yêu cầu bắt buộc. LMS thường yêu cầu bạn hoàn thành bài tập kiểm tra hoặc thực hành sau mỗi bài học. Nếu không hoàn thành bài tập, bạn sẽ không thể mở khóa bài học kế tiếp
+Cách hoàn thành bài tập hiệu quả:
+Đọc kỹ yêu cầu của bài tập và hiểu rõ vấn đề trước khi thực hiện.
+Sử dụng kiến thức từ bài giảng để áp dụng vào bài tập.
+Nếu gặp khó khăn, hãy xem lại video bài giảng hoặc tài liệu hỗ trợ để tìm lời giải.
+
+3. Theo Dõi Tiến Độ Học Tập
+
+LMS eLearning sẽ kết hợp chức năng theo dõi tiến độ học tập trong quản lý đào tạo, giúp bạn biết mình đã hoàn thành bao nhiêu bài trong khóa học và còn những nội dung nào cần hoàn thành. Hãy chủ động kiểm tra tiến độ và đặt mục tiêu học tập để không bị tụt lại phía sau.
+Tips để theo dõi tiến độ:
+Xem lại lộ trình học và xác định thời gian cần thiết cho từng bài học.
+Đặt lịch học hàng ngày hoặc hàng tuần để hoàn thành các bài học đúng thời hạn.
+Theo dõi các cột mốc như số video đã xem, bài tập đã hoàn thành để điều chỉnh kế hoạch học tập.
+
+4. Kiểm Tra Lại Kiến Thức Thường Xuyên
+
+Hệ thống LMS thường cung cấp các bài kiểm tra cuối video. Để đảm bảo bạn đã nắm vững kiến thức, hãy luyện tập thường xuyên không chỉ một lần và tự kiểm tra lại kiến thức của mình.
+Cách ôn tập hiệu quả:
+Sau mỗi bài học, hãy xem lại ghi chú và các tài liệu liên quan.
+Làm lại các bài tập, hoặc thử làm các bài tập mới để củng cố kiến thức.
+Tự đánh giá khả năng của mình qua các bài kiểm tra nhỏ trước khi bước vào kỳ thi chính thức.
+
+Kết Luận
+
+Học tập trên LMS eLearning mang lại sự linh hoạt và tiện lợi, nhưng để đạt kết quả tốt, bạn cần tuân thủ các nguyên tắc học tập như không tua video, làm đầy đủ bài tập và theo dõi tiến độ học tập của mình. Chúc bạn thành công trong quá trình học và hoàn thành tốt khóa học của mình!
+
+Xem thêm
+
+Danh sách bài học
+
+📊
+14/15 Bài học
+
+Session 01: Định hướng môn học AI Integration in Action - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 02 - Tích hợp LLM & kiến trúc Spring AI - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 03 - Cấu hình ChatOptions & chuẩn hóa dữ liệu với Spring AI - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 04 - Thực hành tích hợp LLM, làm quen với Spring AI - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 05 - Xây dựng AI Agent & Kỹ thuật Function Calling - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 06 - Thực hành xây dựng AI Agent, Function Calling - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 07 - Vector Database & kiến trúc RAG - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 08 - Thực hành Vector Database, RAG với AI - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 09 - Hackathon - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 10 - LangChain & LLMOps với Langfuse - LÝ THUYẾT
+
+Checklist cần làm
+📊 Xem Slide (PDF)
+Nộp Link Mindmap
+Xem Kết Quả
+Lesson 1: Lesson 01 - Tổng quan về LangChain & LLMOps với Langfuse
+○ Chưa hoàn thành
+
+Video
+
+Bài đọc
+
+Lesson 2: Lesson 02 - Tích hợp Langfuse SDK, truy vết API (LLM Tracing)
+🔒 Đã khóa
+Lesson 3: Lesson 03 - Quản lý chi phí, giám sát luồng đi của AI Agent
+🔒 Đã khóa
+Lesson 4: Lesson 04 - Quản lý Prompt tập trung, đánh giá đầu ra của AI
+🔒 Đã khóa
+
+Bài tập về nhà
+
+Session 11 - Thực hành với LangChain, Langfuse - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 12 - Kiến trúc MCP (Model Context Protocol) - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 13 - Thực hành cấu hình MCP - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 14 - Mini Project tổng hợp - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 15 - Ôn tập cuối môn - LÝ THUYẾT
+
+Đã hoàn thành

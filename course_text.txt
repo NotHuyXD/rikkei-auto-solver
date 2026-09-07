@@ -1,0 +1,86 @@
+Môn học
+
+93%
+
+14/15 Bài học
+
+Chào mừng bạn đến với khóa học
+menu_book
+15 Sessions
+group
+Bài học
+
+Cùng khám phá kiến thức mới và nâng tầm kỹ năng của bạn. Hành trình bắt đầu từ những bước chân đầu tiên.
+
+Chọn bài học bên phải để bắt đầu
+arrow_forward
+
+Danh sách bài học
+
+📊
+14/15 Bài học
+
+Session 01: Định hướng môn học AI Integration in Action - LÝ THUYẾT
+
+Đã hoàn thành
+📊 Xem Slide (PDF)
+Nộp Link Mindmap
+Xem Kết Quả
+Lesson 1: Định hướng học tập đầu môn học
+✓ Đã hoàn thành tất cả
+
+Session 02 - Tích hợp LLM & kiến trúc Spring AI - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 03 - Cấu hình ChatOptions & chuẩn hóa dữ liệu với Spring AI - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 04 - Thực hành tích hợp LLM, làm quen với Spring AI - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 05 - Xây dựng AI Agent & Kỹ thuật Function Calling - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 06 - Thực hành xây dựng AI Agent, Function Calling - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 07 - Vector Database & kiến trúc RAG - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 08 - Thực hành Vector Database, RAG với AI - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 09 - Hackathon - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 10 - LangChain & LLMOps với Langfuse - LÝ THUYẾT
+
+Checklist cần làm
+
+Session 11 - Thực hành với LangChain, Langfuse - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 12 - Kiến trúc MCP (Model Context Protocol) - LÝ THUYẾT
+
+Đã hoàn thành
+
+Session 13 - Thực hành cấu hình MCP - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 14 - Mini Project tổng hợp - THỰC HÀNH
+
+Đã hoàn thành
+
+Session 15 - Ôn tập cuối môn - LÝ THUYẾT
+
+Đã hoàn thành
