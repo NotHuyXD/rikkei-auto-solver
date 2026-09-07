@@ -1,0 +1,24 @@
+# Thông tin nhạy cảm - KHÔNG bao giờ push lên git
+.env
+auth.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+venv/
+.venv/
+env/
+
+# Cache HTML (dữ liệu crawl tạm thời)
+*.html
+*.png
+
+# Browser profile (dữ liệu phiên đăng nhập)
+browser_profile/
+
+# Scratch files
+*.txt
+!requirements.txt
+!.env.example
