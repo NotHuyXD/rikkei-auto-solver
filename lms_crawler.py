@@ -114,12 +114,13 @@ class LmsCrawler:
         for index in range(num_hw):
             print(f"\\n--- Đang xử lý bài tập {index + 1}/{num_hw} ---")
             
-            # Cố định tên Repo theo chuẩn không phụ thuộc AI để có thể kiểm tra trước
+            # Tạo tên thư mục lưu bài
             repo_name = f"{self.course_prefix}-SS{session_num:02d}-BAI{index+1}"
+            workspace_dir = os.path.join(os.getcwd(), "solution_workspace", repo_name)
             
-            # ĐẢO NGƯỢC QUY TRÌNH: Kiểm tra Repo có tồn tại chưa TRƯỚC KHI gọi AI
-            if git_mgr.check_repo_exists(repo_name):
-                print(f"⏭️ Bỏ qua {repo_name} vì repo đã tồn tại trên GitHub (tránh lãng phí token).")
+            # Kiểm tra xem bài này đã được giải và lưu trên máy hoặc Github chưa
+            if os.path.exists(workspace_dir) or git_mgr.check_repo_exists(repo_name):
+                print(f"⏭️ Bỏ qua {repo_name} vì đã tồn tại cục bộ hoặc trên GitHub (tránh lãng phí token).")
                 continue
                 
             print(f"Đang mô phỏng Click vào bài tập...")
@@ -179,9 +180,8 @@ class LmsCrawler:
                 if not ext:
                     ext = ".txt"
                 
-                print(f"\n--- Đang đẩy Repository: {repo_name} ---")
+                print(f"\\n--- Đang lưu cục bộ và đẩy lên GitHub: {repo_name} ---")
                 
-                workspace_dir = os.path.join(os.getcwd(), "solution_workspace", repo_name)
                 os.makedirs(workspace_dir, exist_ok=True)
                 
                 file_path = os.path.join(workspace_dir, f"bai{index+1}{ext}")
