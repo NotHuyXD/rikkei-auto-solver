@@ -19,7 +19,7 @@ class LmsCrawler:
             page = context.pages[0] if context.pages else context.new_page()
             
             # Vòng lặp từ Session 1 đến 15
-            for session_num in range(1, 16):
+            for session_num in range(1, 20):
                 self._process_session(page, session_num)
                 
             print("🎉 HOÀN THÀNH TOÀN BỘ KHÓA HỌC!")
