@@ -1,59 +1,63 @@
-/*
- * PHẦN 1 – PHÂN TÍCH
- * 
- * 1. Nguyên nhân sập Order-Service:
- *    - Theo mặc định, RestTemplate không thiết lập timeout (hoặc timeout rất lớn). Khi Recommendation-Service
- *      gặp sự cố và phản hồi mất 60 giây, các luồng (threads) của Order-Service gọi sang Recommendation-Service
- *      sẽ rơi vào trạng thái nghẽn (blocked) để chờ kết quả.
- * 
- * 2. Nút thắt cổ chai (Bottleneck Resource):
- *    - Nút thắt cổ chai chính là Thread Pool của Servlet Container (ví dụ: Tomcat Worker Threads trong Spring Boot, 
- *      thường mặc định tối đa là 200 threads).
- *    - Khi 1000 khách hàng bấm thanh toán cùng lúc, toàn bộ các thread xử lý request của Order-Service nhanh chóng bị 
- *      chiếm dụng hoàn toàn và treo trong 60 giây. Khi Thread Pool bị kiệt quệ (Thread Starvation), các request mới
- *      gửi tới Order-Service (dù là chức năng thanh toán hay các chức năng khác) không còn thread nào tiếp nhận,
- *      dẫn đến việc request bị xếp hàng chờ rồi bị từ chối với lỗi HTTP 503 (Service Unavailable). 
- *      Đây chính là hiện tượng Cascading Failure (Lỗi lan truyền).
- */
+===================================================================
+PHẦN 1: PHÂN TÍCH LỖ HỔNG CASCADING FAILURE
+===================================================================
 
-// PHẦN 2 – SỬA LỖI
+1. Nút thắt cổ chai tài nguyên:
+   - Tài nguyên bị nghẽn trực tiếp là: THREAD POOL (Tập hợp luồng xử lý của Tomcat/Order-Service) và kết nối HTTP (HTTP Connections).
 
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.web.client.RestTemplate;
+2. Giải thích cơ chế gây sập hệ thống (Cascading Failure):
+   - Mặc định, RestTemplate trong Spring không cấu hình Read Timeout (hoặc timeout mặc định cực kỳ lớn).
+   - Khi Recommendation-Service phản hồi chậm (mất 60 giây/request), mỗi request từ khách hàng gọi đến Order-Service sẽ tạo/sử dụng một Thread trong Thread Pool của Tomcat và bị treo giữ trong trạng thái chờ (Blocked/Waiting) suốt 60 giây đó.
+   - Tomcat mặc định chỉ có số lượng Thread hạn chế (thường là 200 max-threads).
+   - Khi có 1000 khách hàng cùng bấm thanh toán, 200 Thread đầu tiên lập tức bị chiếm dụng trọn vẹn và cạn kiệt (Thread Starvation). 800 request còn lại phải chờ trong hàng đợi (Queue) hoặc bị từ chối thẳng.
+   - Kết quả: Order-Service hết sạch Thread để phục vụ bất kỳ yêu cầu nào khác (kể cả những chức năng chính như thanh toán), dẫn đến lỗi 503 (Service Unavailable) và làm sập toàn bộ Order-Service. Một sự cố ở dịch vụ phụ (Recommendation) đã lan truyền làm sập dịch vụ chính (Order).
+
+===================================================================
+PHẦN 2: SỬA LỖI (CODE JAVA REFACTOR)
+===================================================================
+
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import java.time.Duration;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
 import java.util.Collections;
 import java.util.List;
 
 @Service
-public class OrderService {
+public class OrderRecommendationService {
 
     private final RestTemplate restTemplate;
 
-    // Cấu hình RestTemplate với Timeout là 3 giây
-    public OrderService(RestTemplateBuilder restTemplateBuilder) {
-        this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(Duration.ofSeconds(3))
-                .setReadTimeout(Duration.ofSeconds(3))
-                .build();
+    public OrderRecommendationService() {
+        // Thiết lập Timeout 3 giây cho RestTemplate
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(3000); // 3 giây kết nối
+        requestFactory.setReadTimeout(3000);    // 3 giây chờ đọc dữ liệu
+
+        this.restTemplate = new RestTemplate(requestFactory);
     }
 
     /**
      * Lấy danh sách sản phẩm gợi ý mua kèm.
-     * Nếu quá 3 giây hoặc xảy ra lỗi, hệ thống sẽ trả về danh sách rỗng []
+     * Nếu quá 3 giây không lấy được, fallback trả về danh sách rỗng []
+     * để không ảnh hưởng đến luồng thanh toán chính.
      */
     public List<Object> getRecommendedProducts(Long userId) {
         String url = "http://recommendation-service/api/recommendations?userId=" + userId;
-        
+
         try {
-            // Gọi API lấy danh sách gợi ý
+            // Gọi API gợi ý
             Object[] response = restTemplate.getForObject(url, Object[].class);
-            return response != null ? List.of(response) : Collections.emptyList();
-        } catch (Exception e) {
-            // FALLBACK MECHANISM:
-            // Bắt mọi lỗi (bao gồm SocketTimeoutException/ResourceAccessException khi quá 3s)
-            // Trả về danh sách rỗng [] để không ảnh hưởng đến luồng thanh toán chính.
-            System.err.println("Recommendation-Service bị lỗi hoặc timeout (>3s). Kích hoạt Fallback: " + e.getMessage());
+            if (response != null) {
+                return List.of(response);
+            }
+            return Collections.emptyList();
+        } catch (RestClientException e) {
+            // Log lỗi/timeout để theo dõi (không throw ngoại lệ ra ngoài)
+            System.err.println("[FALLBACK TRIGGERED] Không thể lấy gợi ý từ Recommendation-Service (Lỗi/Timeout 3s): " + e.getMessage());
+            
+            // Fallback: Trả về danh sách rỗng [] để cho phép khách hàng thanh toán thành công
             return Collections.emptyList();
         }
     }

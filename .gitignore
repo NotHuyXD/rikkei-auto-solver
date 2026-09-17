@@ -22,3 +22,6 @@ browser_profile/
 *.txt
 !requirements.txt
 !.env.example
+
+# Solution workspace folder
+solution-workspace/

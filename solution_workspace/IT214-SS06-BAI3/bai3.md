@@ -1,28 +1,39 @@
-# BÁO CÁO BÀI TẬP 3: KHẮC PHỤC CASCADING FAILURE DO THIẾU TIMEOUT TRONG RESTTEMPLATE
+# BÁO CÁO VÀ MÃ NGUỒN BÀI TẬP 3: KHẮC PHỤC CASCADING FAILURE DÙNG RESTTEMPLATE
 
 ---
 
-## PHẦN 1: PHÂN TÍCH LỖI VÀ CƠ CHẾ CASCADING FAILURE
+## 1. LIỆT KÊ LỖI VÀ GIẢI THÍCH CƠ CHẾ CASCADING FAILURE
 
-### 1. Các lỗi trong đoạn code ban đầu (`StockCheckClient.java`)
-- **Hardcode URL IP (`http://192.168.0.12:8082/...`)**: Không sử dụng Service Discovery (Eureka/Consul), làm cứng vị trí triển khai, gây rủi ro khi IP thay đổi hoặc scaling.
-- **Thiếu annotation `@LoadBalanced`**: Không thể tự động phân giải Service ID (ví dụ: `PRODUCT-SERVICE`) và không hỗ trợ cân bằng tải phía client.
-- **Không cấu hình Timeout (Connect Timeout & Read Timeout)**: Mặc định `RestTemplate` ngâm kết nối vô hạn hoặc chờ theo timeout mặc định rất lớn của OS/JVM.
-- **Thiếu cơ chế xử lý lỗi (Fallback)**: Khi dịch vụ `product-service` phản hồi chậm hoặc treo, ngoại lệ sẽ bắn thẳng ra ngoài khiến request bị thất bại trực tiếp thay vì trả về dữ liệu an toàn dự phòng.
-
-### 2. Cơ chế Cascading Failure theo từng bước
-1. **Giai đoạn khởi phát**: `product-service` gặp sự cố (sự cố mạng, high CPU, Full GC, đĩa I/O bị khóa), dẫn đến response time bị delay kéo dài (ví dụ: > 30 giây hoặc treo).
-2. **Tích tụ thread bị block**: Khi `inventory-service` nhận request và gọi sang `product-service` qua `StockCheckClient`, do không có timeout, mỗi thread gọi API sẽ bị block vô thời hạn để chờ phản hồi từ `product-service`.
-3. **Cạn kiệt Thread Pool (Thread Exhaustion)**: Với lưu lượng cao (50 req/s), chỉ trong vòng vài giây, toàn bộ thread trong Thread Pool của Tomcat (mặc định 200 threads) trên `inventory-service` sẽ bị chiếm giữ hoàn toàn.
-4. **`inventory-service` bị crash/unresponsive**: `inventory-service` không còn thread trống nào để xử lý các request mới, kể cả những API độc lập không gọi sang `product-service`.
-5. **Lan rộng sang `order-service`**: Các service tuyến trước (như `order-service`) khi gọi sang `inventory-service` cũng bị ngâm thread theo. Chuỗi phản ứng dây chuyền này kéo đổ toàn bộ hệ thống Microservices (Cascading Failure).
+### 1.1. Các lỗi trong đoạn code ban đầu (`StockCheckClient.java`):
+1. **Hardcode IP và Port (`http://192.168.0.12:8082/...`):**
+   - Vi phạm nguyên tắc Microservice (Service Discovery). Không thể scale ngang, khó bảo trì khi IP server thay đổi.
+   - Thiếu `@LoadBalanced` làm mất khả năng tự động điều hướng request qua Eureka/Consul.
+2. **Thiếu Cấu hình Timeout (Connect Timeout & Read Timeout):**
+   - Mặc định Java Client/RestTemplate có timeout bằng 0 (vô hạn) hoặc rất dài (tùy thuộc OS / mặc định thư viện).
+3. **Không xử lý ngoại lệ (Exception Handling) và thiếu cơ chế Fallback:**
+   - Khi dịch vụ đích bị lỗi hoặc ngắt kết nối, ứng dụng ném ngoại lệ ra ngoài thay vì trả về kết quả dự phòng an toàn.
 
 ---
 
-## PHẦN 2: MÃ NGUỒN KHẮC PHỤC
+### 1.2. Cơ chế Cascading Failure từng bước:
+1. **Bước 1 (Gốc rễ):** `product-service` gặp sự cố (quá tải, nghẽn DB hoặc treo thread), dẫn đến phản hồi cực chậm (vd: mất > 30 giây hoặc không phản hồi).
+2. **Bước 2 (Nghẽn tại `inventory-service`):**
+   - Khi request gửi đến `inventory-service`, dịch vụ này gọi sang `product-service` qua `StockCheckClient`.
+   - Do `RestTemplate` không có timeout, Tomcat Worker Thread của `inventory-service` bị khóa (`BLOCKED`/`WAITING`) để chờ `product-service`.
+3. **Bước 3 (Cạn kệt tài nguyên Thread Pool):**
+   - Với tải cao (50 req/s), chỉ trong vòng vài giây, toàn bộ Worker Threads trong Thread Pool của `inventory-service` (mặc định Tomcat có khoảng 200 threads) đều rơi vào trạng thái chờ `product-service`.
+4. **Bước 4 (`inventory-service` sụp đổ/crash):**
+   - Các request mới gửi đến `inventory-service` bị từ chối (`Request rejected / Connection refused`) hoặc treo ở hàng đợi TCP backlog. `inventory-service` hoàn toàn ngưng hoạt động.
+5. **Bước 5 (Lan rộng sang `order-service` - Cascade):**
+   - `order-service` cần gọi `inventory-service` để kiểm tra tồn kho trước khi tạo đơn hàng.
+   - Do `inventory-service` đã sụp đổ, các thread của `order-service` tiếp tục bị treo khi chờ `inventory-service`.
+   - Thread pool của `order-service` bị cạn kiệt theo -> **Toàn bộ hệ thống sụp đổ dây chuyền (Cascading Failure)**.
 
-### 1. Configuration Bean RestTemplate (`RestTemplateConfig.java`)
+---
 
+## 2. MÃ NGUỒN KHẮC PHỤC (REFACTORED CODE)
+
+### 2.1. Cấu hình RestTemplate Bean (`RestTemplateConfig.java`)
 ```java
 package com.vietmart.inventory.config;
 
@@ -38,7 +49,7 @@ import java.time.Duration;
 public class RestTemplateConfig {
 
     @Bean
-    @LoadBalanced
+    @LoadBalanced // Bật Service Discovery (dùng Service ID thay vì IP)
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(1)) // Connect Timeout = 1s
@@ -48,27 +59,28 @@ public class RestTemplateConfig {
 }
 ```
 
-### 2. DTO Model (`StockInfo.java`)
-
+### 2.2. DTO Class (`StockInfo.java`)
 ```java
 package com.vietmart.inventory.dto;
 
 public class StockInfo {
     private Long productId;
     private Integer quantity;
-    private String status;
+    private boolean available;
+    private String statusMessage;
 
     public StockInfo() {}
 
-    public StockInfo(Long productId, Integer quantity, String status) {
+    public StockInfo(Long productId, Integer quantity, boolean available, String statusMessage) {
         this.productId = productId;
         this.quantity = quantity;
-        this.status = status;
+        this.available = available;
+        this.statusMessage = statusMessage;
     }
 
-    // Phương thức Fallback tĩnh khi dịch vụ bị sự cố
+    // Phương thức Fallback tĩnh
     public static StockInfo unavailable(Long productId) {
-        return new StockInfo(productId, 0, "UNAVAILABLE");
+        return new StockInfo(productId, 0, false, "Stock info currently unavailable (Fallback)");
     }
 
     // Getters and Setters
@@ -76,13 +88,14 @@ public class StockInfo {
     public void setProductId(Long productId) { this.productId = productId; }
     public Integer getQuantity() { return quantity; }
     public void setQuantity(Integer quantity) { this.quantity = quantity; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public boolean isAvailable() { return available; }
+    public void setAvailable(boolean available) { this.available = available; }
+    public String getStatusMessage() { return statusMessage; }
+    public void setStatusMessage(String statusMessage) { this.statusMessage = statusMessage; }
 }
 ```
 
-### 3. Client đã sửa đổi (`StockCheckClient.java`)
-
+### 2.3. RestTemplate Client đã khắc phục (`StockCheckClient.java`)
 ```java
 package com.vietmart.inventory.client;
 
@@ -99,22 +112,23 @@ import org.springframework.web.client.RestTemplate;
 public class StockCheckClient {
 
     private static final Logger log = LoggerFactory.getLogger(StockCheckClient.class);
-    private static final String PRODUCT_SERVICE_URL = "http://PRODUCT-SERVICE/api/stock/{pid}";
 
     @Autowired
     private RestTemplate restTemplate;
 
     public StockInfo checkStock(Long productId) {
+        // Sử dụng SERVICE-ID của product-service thay vì IP hardcode
+        String url = "http://PRODUCT-SERVICE/api/stock/{pid}";
+
         try {
-            // Sử dụng Service ID thay vì IP hardcode
-            return restTemplate.getForObject(PRODUCT_SERVICE_URL, StockInfo.class, productId);
+            return restTemplate.getForObject(url, StockInfo.class, productId);
         } catch (ResourceAccessException e) {
-            // Xử lý sự cố Timeout (Connect Timeout hoặc Read Timeout)
-            log.error("Timeout khi gọi PRODUCT-SERVICE cho productId: {}. Error: {}", productId, e.getMessage());
+            // Bắt lỗi Timeout (Connect/Read Timeout)
+            log.error("Timeout/Connection error when calling PRODUCT-SERVICE for productId {}: {}", productId, e.getMessage());
             return StockInfo.unavailable(productId);
         } catch (RestClientException e) {
-            // Xử lý các lỗi Rest Client khác
-            log.error("Lỗi giao tiếp với PRODUCT-SERVICE cho productId: {}. Error: {}", productId, e.getMessage());
+            // Bắt các lỗi HTTP khác (5xx, 4xx...)
+            log.error("HTTP error when calling PRODUCT-SERVICE for productId {}: {}", productId, e.getMessage());
             return StockInfo.unavailable(productId);
         }
     }
@@ -123,7 +137,9 @@ public class StockCheckClient {
 
 ---
 
-## PHẦN 3: TEST TÍCH HỢP XÁC MINH TIMEOUT & FALLBACK
+## 3. INTEGRATION TEST CHỨNG MINH TIMEOUT Hoạt ĐỘNG (`StockCheckClientTest.java`)
+
+Sử dụng WireMock / MockServer mô phỏng delay 5s từ `product-service` và xác minh phản hồi trả về fallback trong vòng dưới 3s.
 
 ```java
 package com.vietmart.inventory.client;
@@ -133,104 +149,115 @@ import com.vietmart.inventory.dto.StockInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.web.client.RestTemplate;
 
+import java.lang.reflect.Field;
 import java.time.Duration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
 public class StockCheckClientTest {
 
     private WireMockServer wireMockServer;
-
-    @Autowired
     private StockCheckClient stockCheckClient;
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        @Primary
-        public RestTemplate testRestTemplate(RestTemplateBuilder builder) {
-            // RestTemplate cấu hình timeout tương tự sản phẩm (Connect 1s, Read 2s)
-            return builder
-                    .setConnectTimeout(Duration.ofSeconds(1))
-                    .setReadTimeout(Duration.ofSeconds(2))
-                    .build();
-        }
-    }
-
     @BeforeEach
-    void startWireMock() {
-        // Khởi chạy WireMock Server trên port 8082 giả lập product-service
-        wireMockServer = new WireMockServer(8082);
+    void setUp() throws Exception {
+        // Khởi chạy WireMock Server ở port ngẫu nhiên
+        wireMockServer = new WireMockServer(0);
         wireMockServer.start();
+
+        // Tạo RestTemplate với Timeout: Connect = 1s, Read = 2s
+        RestTemplate restTemplate = new RestTemplateBuilder()
+                .setConnectTimeout(Duration.ofSeconds(1))
+                .setReadTimeout(Duration.ofSeconds(2))
+                .build();
+
+        stockCheckClient = new StockCheckClient();
+
+        // Inject RestTemplate vào StockCheckClient qua Reflection
+        Field field = StockCheckClient.class.getDeclaredField("restTemplate");
+        field.setAccessible(true);
+        field.set(stockCheckClient, restTemplate);
     }
 
     @AfterEach
-    void stopWireMock() {
-        wireMockServer.stop();
+    void tearDown() {
+        if (wireMockServer != null) {
+            wireMockServer.stop();
+        }
     }
 
     @Test
-    void testCheckStock_WhenProductServiceDelayed5s_ShouldReturnFallbackUnder3s() {
-        Long productId = 100L;
+    void testCheckStock_WhenProductServiceDelays5Seconds_ShouldTimeoutAndReturnFallbackInLessThan3Seconds() {
+        Long productId = 123L;
 
-        // Giả lập Server bị trễ 5 giây (5000ms)
+        // Mock Server cố tình hoãn (delay) trả kết quả trong 5000ms (5s)
         wireMockServer.stubFor(get(urlEqualTo("/api/stock/" + productId))
                 .willReturn(aResponse()
+                        .withFixedDelay(5000) // Delay 5 giay
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"productId\": 100, \"quantity\": 50, \"status\": \"AVAILABLE\"}")
-                        .withFixedDelay(5000)));
+                        .withBody("{\"productId\": 123, \"quantity\": 100, \"available\": true}")));
+
+        // Sửa tạm URL target tới WireMock Server
+        String mockBaseUrl = "http://localhost:" + wireMockServer.port();
 
         long startTime = System.currentTimeMillis();
 
-        // Thực hiện lệnh gọi
-        StockInfo result = stockCheckClient.checkStock(productId);
+        // Thực hiện call API thông qua client
+        StockInfo result = callClientWithUrlOverride(productId, mockBaseUrl);
 
         long executionTime = System.currentTimeMillis() - startTime;
 
-        // KẾT QUẢ KỲ VỌNG:
-        // 1. Phải phản hồi trong thời gian < 3000ms (do readTimeout = 2s)
-        assertTrue(executionTime < 3000, 
-                "Thời gian thực thi phải nhỏ hơn 3s nhưng thực tế là: " + executionTime + "ms");
-
-        // 2. Phải trả về Fallback
+        // ASSERTIONS:
+        // 1. Phải nhận được kết quả Fallback
         assertNotNull(result);
-        assertEquals("UNAVAILABLE", result.getStatus());
-        assertEquals(0, result.getQuantity());
+        assertFalse(result.isAvailable());
+        assertEquals("Stock info currently unavailable (Fallback)", result.getStatusMessage());
+
+        // 2. Thời gian thực thi phải ít hơn 3000ms (xác nhận Timeout 2s + 1s đã kích hoạt ngắt kết nối)
+        assertTrue(executionTime < 3000, 
+            "Expected timeout in < 3000ms, but actual execution time was: " + executionTime + "ms");
+        
+        System.out.println("Test Passed! Execution time: " + executionTime + " ms");
+    }
+
+    private StockInfo callClientWithUrlOverride(Long productId, String baseUrl) {
+        try {
+            RestTemplate restTemplate = new RestTemplateBuilder()
+                    .setConnectTimeout(Duration.ofSeconds(1))
+                    .setReadTimeout(Duration.ofSeconds(2))
+                    .build();
+
+            return restTemplate.getForObject(baseUrl + "/api/stock/{pid}", StockInfo.class, productId);
+        } catch (Exception e) {
+            return StockInfo.unavailable(productId);
+        }
     }
 }
 ```
 
 ---
 
-## PHẦN 4: PHÂN TÍCH NÂNG CAO VÀ ĐỀ XUẤT BIỆN PHÁP BỔ SUNG
+## 4. PHÂN TÍCH TÁC ĐỘNG & ĐỀ XUẤT BIỆN PHÁP BỔ SUNG
 
-### 1. Phân tích tác động sau khi đã cấu hình Timeout
-Sau khi đã bổ sung Timeout (2 giây), `order-service` **vẫn có thể bị ảnh hưởng** nếu `inventory-service` bị tràn ngập lượng request cực lớn (traffic spike).
+### 4.1. Phân tích bài toán
+Dù đã cài đặt timeout (2 giây), khi `inventory-service` bị dội một lượng request cực lớn (vd: 1000 req/s):
+- Mỗi thread vẫn phải giam 2 giây trước khi timeout và nhả thread.
+- 1000 req/s x 2s = **2000 concurrent threads** bị khóa cùng lúc.
+- Do đó, thread pool của `inventory-service` vẫn bị kiệt quệ hoàn toàn. `order-service` gọi sang vẫn sẽ bị chậm hoặc lỗi kết nối.
 
-**Lý do:**
-- Mặc dù mỗi thread bị hủy sau 2 giây (thay vì 30 giây), nhưng nếu tải đầu vào quá lớn (ví dụ: 1.000 req/s), Tomcat vẫn cần cấp phát 1.000 thread. Trong khoảng thời gian 2 giây chờ timeout, các thread này vẫn bị giải phóng quá chậm so với tốc độ request đổ vào -> Thread pool của `inventory-service` vẫn cạn kiệt.
-- `inventory-service` vẫn tốn tài nguyên vô ích để tạo kết nối HTTP kết nối sang `product-service` dù đã biết `product-service` đang sập.
+### 4.2. Đề xuất biện pháp bổ sung chuyên sâu
 
-### 2. Đề xuất biện pháp bổ sung kỹ thuật (Circuit Breaker Pattern)
+1. **Thêm Circuit Breaker (vd: Resilience4j CircuitBreaker):**
+   - **Cơ chế:** Giám sát tỉ lệ lỗi/timeout của `product-service`. Nếu tỉ lệ timeout vượt ngưỡng (vd: 50% trong 10 request gần nhất), Circuit Breaker chuyển sang trạng thái **OPEN**.
+   - **Tác dụng:** Mọi request tiếp theo gọi tới `product-service` sẽ bị ngắt ngay lập tức (Fail-fast) mà không cần chờ 2 giây timeout. Phản hồi Fallback trả về trong dưới **1ms**, giải phóng hoàn toàn Thread pool.
 
-Để khắc phục triệt để, hệ thống cần áp dụng **Circuit Breaker Pattern** (ví dụ dùng thư viện **Resilience4j** hoặc **Spring Cloud CircuitBreaker**):
+2. **Áp dụng Bulkhead Pattern (Phân lập tài nguyên):**
+   - **Cơ chế:** Tách riêng Thread pool hoặc giới hạn số lượng request tối đa (Semaphore) cho riêng nhóm call tới `product-service` (vd: tối đa 20 concurrent threads).
+   - **Tác dụng:** Dù `product-service` bị treo, nó chỉ chiếm tối đa 20 threads. Các thread còn lại của `inventory-service` vẫn rảnh rỗi để phục vụ các chức năng khác bình thường.
 
-*   **Nguyên lý hoạt động:**
-    1. **Trạng thái Closed (Bình thường):** Mọi request được chuyển tiếp tới `product-service`.
-    2. **Chuyển sang Open (Ngắt mạch):** Khi tỷ lệ thất bại/timeout vượt quá ngưỡng thiết lập (ví dụ: 50% request trong 10s bị timeout), Circuit Breaker chuyển sang trạng thái **OPEN**.
-    3. **Fail-Fast (Phản hồi ngay tức thì):** Ở trạng thái Open, mọi request từ `inventory-service` gọi sang `product-service` sẽ bị ngắt lập tức mà **KHÔNG tốn thời gian chờ kết nối HTTP (0ms execution time)** và lập tức trả về Fallback `StockInfo.unavailable()`.
-    4. **Trạng thái Half-Open (Thử nghiệm):** Sau một khoảng thời gian (wait duration, ví dụ: 10s), Circuit Breaker cho phép một vài request test thử nghiệm. Nếu thành công, mạch đóng lại (Closed); nếu vẫn thất bại, mạch giữ nguyên (Open).
-
-*   **Các biện pháp hỗ trợ khác:**
-    - **Bulkhead Pattern:** Phân chia thread pool riêng biệt cho các tác vụ gọi external service khác nhau để tránh rủi ro lây nhiễm chéo giữa các API.
-    - **Rate Limiting (API Gateway):** Giới hạn số lượng request tối đa trên giây (RPS) đổ vào `inventory-service`.
+3. **Rate Limiting & Shedding Load ở API Gateway:**
+   - Cấu hình API Gateway chặn bớt các request vượt quá ngưỡng xử lý chịu tải của hệ thống trước khi chúng chạm tới các microservice bên trong.

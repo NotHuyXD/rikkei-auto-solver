@@ -79,7 +79,7 @@ class LmsCrawler:
                 
                 // Hàm trích xuất các dòng "Bài X:" hoặc "Bài tập X" (Là các thẻ lá không có thẻ con)
                 let getHwItems = () => Array.from(container.querySelectorAll('*')).filter(el => 
-                    el.innerText && el.innerText.match(/^Bài\s*(?:tập\s*)?\d+/i) && el.children.length === 0
+                    el.innerText && el.innerText.match(/^Bài\s.*?\d+/i) && el.children.length === 0
                 );
                 
                 let hwItems = getHwItems();
@@ -135,7 +135,7 @@ class LmsCrawler:
                     for (let i = 0; i < 10; i++) {{
                         if (!container) break;
                         const hwItems = Array.from(container.querySelectorAll('*')).filter(el => 
-                            el.innerText && el.innerText.match(/^Bài\s*(?:tập\s*)?\d+/i) && el.children.length === 0
+                            el.innerText && el.innerText.match(/^Bài\s.*?\d+/i) && el.children.length === 0
                         );
                         if (hwItems.length > 0 && idx < hwItems.length) {{
                             hwItems[idx].click();
